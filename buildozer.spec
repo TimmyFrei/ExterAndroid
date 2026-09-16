@@ -1,0 +1,28 @@
+[app]
+
+title = ExterAndroid
+package.name = exterandroid
+package.domain = org.exterandroid
+
+source.dir = .
+source.include_exts = py,png,jpg,jpeg,kv,json,atlas
+
+version = 0.1
+
+requirements = python3,kivy
+
+orientation = portrait
+
+fullscreen = 0
+
+
+[buildozer]
+
+log_level = 2
+
+
+[android]
+
+android.api = 35
+android.minapi = 21
+android.archs = arm64-v8a
