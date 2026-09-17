@@ -15,6 +15,8 @@ orientation = landscape
 
 fullscreen = 0
 
+android.permissions = INTERNET
+
 android.archs = arm64-v8a
 
 
