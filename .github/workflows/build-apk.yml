@@ -40,6 +40,12 @@ jobs:
             libtinfo5 \
             cmake
 
+      - name: Set Java 17
+        run: |
+          echo "JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/temurin-17-jdk-amd64/bin" >> $GITHUB_PATH
+          java -version
+
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
