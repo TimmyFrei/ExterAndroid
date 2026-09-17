@@ -11,7 +11,7 @@ version = 0.1
 
 requirements = python3==3.11.9,hostpython3==3.11.9,kivy
 
-orientation = portrait
+orientation = landscape
 
 fullscreen = 0
 
