@@ -2917,121 +2917,557 @@ class PersonsScreen(BaseScreen):
     def __init__(self, app, **kwargs):
         super().__init__(name="persons", **kwargs)
         self.app = app
+        self.filters_open = False
+
         root = BoxLayout(orientation="vertical")
         root.add_widget(TopBar(app))
 
-        controls = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(142), padding=dp(6), spacing=dp(5))
-        r = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(5))
-        self.search = TextInput(hint_text="Поиск: ФИО, место, регион", multiline=False)
+        # ========================================================
+        # Верхняя строка: фильтры + счётчик
+        # ========================================================
+        header = BoxLayout(
+            size_hint_y=None,
+            height=dp(36),
+            spacing=dp(4),
+            padding=(dp(4), dp(2))
+        )
+
+        self.filter_button = Button(
+            text="Фильтры / поиск",
+            size_hint_x=.24,
+            font_size=dp(13)
+        )
+        self.filter_button.bind(
+            on_release=lambda *_: self.toggle_filters()
+        )
+        header.add_widget(self.filter_button)
+
+        self.counter = Label(
+            text="Показано: 0 / 0",
+            size_hint_x=.76,
+            halign="left",
+            valign="middle",
+            font_size=dp(13)
+        )
+        self.counter.bind(
+            size=lambda obj, *_:
+            setattr(obj, "text_size", obj.size)
+        )
+        header.add_widget(self.counter)
+
+        root.add_widget(header)
+
+        # ========================================================
+        # Панель фильтров
+        # По умолчанию полностью скрыта.
+        # ========================================================
+        self.controls = BoxLayout(
+            orientation="vertical",
+            size_hint_y=None,
+            height=0,
+            padding=dp(4),
+            spacing=dp(3)
+        )
+
+        # Поиск
+        r = BoxLayout(
+            size_hint_y=None,
+            height=dp(34),
+            spacing=dp(4)
+        )
+
+        self.search = TextInput(
+            hint_text="Поиск: ФИО, место, регион",
+            multiline=False,
+            font_size=dp(14)
+        )
         r.add_widget(self.search)
-        b = Button(text="Найти", size_hint_x=.25); b.bind(on_release=lambda *_: self.apply_filters()); r.add_widget(b)
-        controls.add_widget(r)
 
-        # Компактная строка фильтров: год, обвинение в терроризме и возраст.
-        r = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(5))
-        self.year = Spinner(text="Все годы", values=("Все годы",), size_hint_x=.24); self.year.bind(text=lambda *_: self.apply_filters())
+        b = Button(
+            text="Найти",
+            size_hint_x=.16,
+            font_size=dp(13)
+        )
+        b.bind(
+            on_release=lambda *_:
+            self.apply_filters()
+        )
+        r.add_widget(b)
+
+        self.controls.add_widget(r)
+
+        # Год / терроризм / сортировка / несовершеннолетние
+        r = BoxLayout(
+            size_hint_y=None,
+            height=dp(34),
+            spacing=dp(4)
+        )
+
+        self.year = Spinner(
+            text="Все годы",
+            values=("Все годы",),
+            size_hint_x=.20,
+            font_size=dp(12)
+        )
+        self.year.bind(
+            text=lambda *_:
+            self.apply_filters()
+        )
         r.add_widget(self.year)
-        self.terrorism = Spinner(text="ТЕРРОРИЗМ: Все", values=("ТЕРРОРИЗМ: Все","ТЕРРОРИЗМ: С обвинением","ТЕРРОРИЗМ: Без обвинения"), size_hint_x=.43)
-        self.terrorism.bind(text=lambda *_: self.apply_filters())
+
+        self.terrorism = Spinner(
+            text="ТЕРРОРИЗМ: Все",
+            values=(
+                "ТЕРРОРИЗМ: Все",
+                "ТЕРРОРИЗМ: С обвинением",
+                "ТЕРРОРИЗМ: Без обвинения"
+            ),
+            size_hint_x=.34,
+            font_size=dp(11)
+        )
+        self.terrorism.bind(
+            text=lambda *_:
+            self.apply_filters()
+        )
         r.add_widget(self.terrorism)
-        self.sort_order = Spinner(text="По алфавиту А-Я", values=("По возрасту: младш","По возрасту: старш","По алфавиту А-Я","По алфавиту Я-А"), size_hint_x=.33)
-        self.sort_order.bind(text=lambda *_: self.apply_filters())
+
+        self.sort_order = Spinner(
+            text="По алфавиту А-Я",
+            values=(
+                "По возрасту: младш",
+                "По возрасту: старш",
+                "По алфавиту А-Я",
+                "По алфавиту Я-А"
+            ),
+            size_hint_x=.30,
+            font_size=dp(11)
+        )
+        self.sort_order.bind(
+            text=lambda *_:
+            self.apply_filters()
+        )
         r.add_widget(self.sort_order)
-        minor_box = BoxLayout(size_hint_x=.24, spacing=dp(2))
-        self.minor = CheckBox(size_hint_x=None, width=dp(34))
+
+        minor_box = BoxLayout(
+            size_hint_x=.16,
+            spacing=dp(2)
+        )
+
+        self.minor = CheckBox(
+            size_hint_x=None,
+            width=dp(28)
+        )
         minor_box.add_widget(self.minor)
-        minor_box.add_widget(Label(text="до 18 лет", halign="left", valign="middle"))
-        minor_box.children[-1].bind(size=lambda obj,*_: setattr(obj,"text_size",obj.size))
-        self.minor.bind(active=lambda *_: self.apply_filters())
+
+        minor_label = Label(
+            text="до 18",
+            font_size=dp(12),
+            halign="left",
+            valign="middle"
+        )
+        minor_label.bind(
+            size=lambda obj, *_:
+            setattr(obj, "text_size", obj.size)
+        )
+        minor_box.add_widget(minor_label)
+
+        self.minor.bind(
+            active=lambda *_:
+            self.apply_filters()
+        )
+
         r.add_widget(minor_box)
-        controls.add_widget(r)
+        self.controls.add_widget(r)
 
-        r = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(5))
-        self.region = Spinner(text="Все регионы", values=("Все регионы",), size_hint_x=.76); self.region.bind(text=lambda *_: self.apply_filters())
-        b=Button(text="Сброс", size_hint_x=.24); b.bind(on_release=lambda *_: self.reset_filters()); r.add_widget(self.region); r.add_widget(b)
-        controls.add_widget(r)
-        root.add_widget(controls)
-        self.counter = Label(text="Показано: 0 / 0", size_hint_y=None, height=dp(28), halign="left")
-        root.add_widget(self.counter)
-        self.top_pager_box = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(5), padding=dp(3))
+        # Регион / Сброс
+        r = BoxLayout(
+            size_hint_y=None,
+            height=dp(34),
+            spacing=dp(4)
+        )
+
+        self.region = Spinner(
+            text="Все регионы",
+            values=("Все регионы",),
+            size_hint_x=.82,
+            font_size=dp(12)
+        )
+        self.region.bind(
+            text=lambda *_:
+            self.apply_filters()
+        )
+        r.add_widget(self.region)
+
+        b = Button(
+            text="Сброс",
+            size_hint_x=.18,
+            font_size=dp(12)
+        )
+        b.bind(
+            on_release=lambda *_:
+            self.reset_filters()
+        )
+        r.add_widget(b)
+
+        self.controls.add_widget(r)
+
+        root.add_widget(self.controls)
+
+        # ========================================================
+        # Верхняя пагинация
+        # ========================================================
+        self.top_pager_box = BoxLayout(
+            size_hint_y=None,
+            height=dp(34),
+            spacing=dp(3),
+            padding=dp(2)
+        )
         root.add_widget(self.top_pager_box)
-        self.scroll=ScrollView(); self.list_box=GridLayout(cols=1,spacing=dp(4),padding=dp(5),size_hint_y=None); self.list_box.bind(minimum_height=self.list_box.setter("height")); self.scroll.add_widget(self.list_box); root.add_widget(self.scroll)
-        root.add_widget(BottomNav(app)); self.add_widget(root)
-        self.search.bind(on_text_validate=lambda *_: self.apply_filters())
 
-    def on_pre_enter(self,*_):
-        self.sync_filter_values(); self.refresh()
+        # ========================================================
+        # Список
+        # ========================================================
+        self.scroll = ScrollView(
+            size_hint_y=1
+        )
+
+        self.list_box = GridLayout(
+            cols=1,
+            spacing=dp(2),
+            padding=(dp(4), dp(2)),
+            size_hint_y=None
+        )
+
+        self.list_box.bind(
+            minimum_height=self.list_box.setter("height")
+        )
+
+        self.scroll.add_widget(self.list_box)
+        root.add_widget(self.scroll)
+
+        # ========================================================
+        # Нижняя навигация
+        # ========================================================
+        root.add_widget(BottomNav(app))
+
+        self.add_widget(root)
+
+        self.search.bind(
+            on_text_validate=lambda *_:
+            self.apply_filters()
+        )
+
+    def toggle_filters(self):
+        if self.filters_open:
+            self.filters_open = False
+            self.controls.height = 0
+            self.filter_button.text = "Фильтры / поиск"
+        else:
+            self.filters_open = True
+            self.controls.height = dp(112)
+            self.filter_button.text = "Скрыть фильтры"
+
+    def on_pre_enter(self, *_):
+        self.sync_filter_values()
+        self.refresh()
 
     def sync_filter_values(self):
-        years=sorted({str(r.get("birth_year")) for r in self.app.records if r.get("birth_year")}, key=lambda x: int(x), reverse=True)
-        regions=sorted({self.app.region_for_record(r) for r in self.app.records}, key=str.casefold)
-        self.year.values=("Все годы",)+tuple(years)
-        self.region.values=("Все регионы",)+tuple(regions)
-        if self.year.text not in self.year.values: self.year.text="Все годы"
-        if self.region.text not in self.region.values: self.region.text="Все регионы"
+        years = sorted(
+            {
+                str(r.get("birth_year"))
+                for r in self.app.records
+                if r.get("birth_year")
+            },
+            key=lambda x: int(x),
+            reverse=True
+        )
+
+        regions = sorted(
+            {
+                self.app.region_for_record(r)
+                for r in self.app.records
+            },
+            key=str.casefold
+        )
+
+        self.year.values = (
+            "Все годы",
+        ) + tuple(years)
+
+        self.region.values = (
+            "Все регионы",
+        ) + tuple(regions)
+
+        if self.year.text not in self.year.values:
+            self.year.text = "Все годы"
+
+        if self.region.text not in self.region.values:
+            self.region.text = "Все регионы"
 
     def apply_filters(self):
-        self.app.person_page=0
+        self.app.person_page = 0
         self.refresh()
 
     def reset_filters(self):
-        self.search.text=""; self.year.text="Все годы"; self.terrorism.text="ТЕРРОРИЗМ: Все"; self.sort_order.text="По алфавиту А-Я"; self.region.text="Все регионы"; self.minor.active=False; self.app.person_page=0; self.refresh()
+        self.search.text = ""
+        self.year.text = "Все годы"
+        self.terrorism.text = "ТЕРРОРИЗМ: Все"
+        self.sort_order.text = "По алфавиту А-Я"
+        self.region.text = "Все регионы"
+        self.minor.active = False
+
+        self.app.person_page = 0
+        self.refresh()
 
     def refresh(self):
         self.list_box.clear_widgets()
-        q=self.search.text.strip().casefold()
-        rows=[]
+
+        q = self.search.text.strip().casefold()
+        rows = []
+
         for r in self.app.records:
-            if q and q not in r.get("_search_text",""): continue
-            if self.year.text!="Все годы" and str(r.get("birth_year"))!=self.year.text: continue
-            if self.terrorism.text=="ТЕРРОРИЗМ: С обвинением" and not r.get("terrorism_charge",0): continue
-            if self.terrorism.text=="ТЕРРОРИЗМ: Без обвинения" and r.get("terrorism_charge",0): continue
-            if self.region.text!="Все регионы" and self.app.region_for_record(r)!=self.region.text: continue
-            if self.minor.active and (self.app.get_age(r) is None or self.app.get_age(r)>=18): continue
+            if q and q not in r.get("_search_text", ""):
+                continue
+
+            if (
+                self.year.text != "Все годы"
+                and str(r.get("birth_year")) != self.year.text
+            ):
+                continue
+
+            if (
+                self.terrorism.text ==
+                "ТЕРРОРИЗМ: С обвинением"
+                and not r.get("terrorism_charge", 0)
+            ):
+                continue
+
+            if (
+                self.terrorism.text ==
+                "ТЕРРОРИЗМ: Без обвинения"
+                and r.get("terrorism_charge", 0)
+            ):
+                continue
+
+            if (
+                self.region.text != "Все регионы"
+                and self.app.region_for_record(r) != self.region.text
+            ):
+                continue
+
+            if (
+                self.minor.active
+                and (
+                    self.app.get_age(r) is None
+                    or self.app.get_age(r) >= 18
+                )
+            ):
+                continue
+
             rows.append(r)
 
-        if self.sort_order.text=="По возрасту: младш":
-            rows.sort(key=lambda r: (self.app.get_age(r) is None, self.app.get_age(r) if self.app.get_age(r) is not None else 999, r.get("fio","").casefold()))
-        elif self.sort_order.text=="По возрасту: старш":
-            rows.sort(key=lambda r: (self.app.get_age(r) is None, -(self.app.get_age(r) if self.app.get_age(r) is not None else -1), r.get("fio","").casefold()))
-        elif self.sort_order.text=="По алфавиту Я-А":
-            rows.sort(key=lambda r:r.get("fio","").casefold(), reverse=True)
-        else:
-            rows.sort(key=lambda r:r.get("fio","").casefold())
-        self.counter.text=f"Показано: {len(rows)} / {len(self.app.records)}"
+        # ========================================================
+        # Сортировка
+        # ========================================================
+        if self.sort_order.text == "По возрасту: младш":
+            rows.sort(
+                key=lambda r: (
+                    self.app.get_age(r) is None,
+                    self.app.get_age(r)
+                    if self.app.get_age(r) is not None
+                    else 999,
+                    r.get("fio", "").casefold()
+                )
+            )
 
-        visible, page, pages = self.app._paginate(rows, self.app.person_page)
+        elif self.sort_order.text == "По возрасту: старш":
+            rows.sort(
+                key=lambda r: (
+                    self.app.get_age(r) is None,
+                    -(
+                        self.app.get_age(r)
+                        if self.app.get_age(r) is not None
+                        else -1
+                    ),
+                    r.get("fio", "").casefold()
+                )
+            )
+
+        elif self.sort_order.text == "По алфавиту Я-А":
+            rows.sort(
+                key=lambda r:
+                r.get("fio", "").casefold(),
+                reverse=True
+            )
+
+        else:
+            rows.sort(
+                key=lambda r:
+                r.get("fio", "").casefold()
+            )
+
+        self.counter.text = (
+            f"Показано: {len(rows)} / "
+            f"{len(self.app.records)}"
+        )
+
+        # ========================================================
+        # Пагинация
+        # ========================================================
+        visible, page, pages = self.app._paginate(
+            rows,
+            self.app.person_page
+        )
+
         self.app.person_page = page
 
-        # Важно: создаём только записи текущей страницы, а не всю базу сразу.
+        # ========================================================
+        # Записи
+        # ========================================================
         for r in visible:
-            mark="  [ТЕРРОРИЗМ]" if r.get("terrorism_charge",0) else ""
-            text=f"{r.get('fio','')}{mark}\n{r.get('birth_date','')}  •  {r.get('birth_place','')}\n{self.app.region_for_record(r)}"
-            b=RecordButton(text=text)
-            b.bind(on_release=lambda _, rec=r: self.open_record(rec))
+            mark = ""
+
+            if r.get("terrorism_charge", 0):
+                mark = " [ТЕРРОРИЗМ]"
+
+            text = (
+                f"{r.get('fio', '')}{mark}\n"
+                f"{r.get('birth_date', '')} • "
+                f"{r.get('birth_place', '')} • "
+                f"{self.app.region_for_record(r)}"
+            )
+
+            b = RecordButton(
+                text=text,
+                font_size=dp(14),
+                size_hint_y=None,
+                height=dp(48)
+            )
+
+            b.bind(
+                on_release=lambda _, rec=r:
+                self.open_record(rec)
+            )
+
             self.list_box.add_widget(b)
 
-        # Навигация дублируется сверху и снизу, чтобы не приходилось
-        # прокручивать длинный список до конца.
-        self._build_person_pager(self.top_pager_box, page, pages, top=True)
-        bottom_nav=BoxLayout(size_hint_y=None,height=dp(46),spacing=dp(6),padding=dp(3))
-        self._build_person_pager(bottom_nav, page, pages, top=False)
+        # ========================================================
+        # Верхняя пагинация
+        # ========================================================
+        self._build_person_pager(
+            self.top_pager_box,
+            page,
+            pages,
+            top=True
+        )
+
+        # ========================================================
+        # Нижняя пагинация
+        # ========================================================
+        bottom_nav = BoxLayout(
+            size_hint_y=None,
+            height=dp(34),
+            spacing=dp(3),
+            padding=dp(2)
+        )
+
+        self._build_person_pager(
+            bottom_nav,
+            page,
+            pages,
+            top=False
+        )
+
         self.list_box.add_widget(bottom_nav)
 
-    def _build_person_pager(self, box, page, pages, top=False):
+    def _build_person_pager(
+        self,
+        box,
+        page,
+        pages,
+        top=False
+    ):
         box.clear_widgets()
-        prev_btn=Button(text="‹ Пред.", disabled=(page<=0), size_hint_x=.16)
-        page_label=Label(text=f"Стр. {page+1}/{pages}", halign="center", valign="middle", size_hint_x=.18)
-        next_btn=Button(text="След. ›", disabled=(page>=pages-1), size_hint_x=.16)
-        page_input=TextInput(text=str(page+1), multiline=False, input_filter="int", halign="center", size_hint_x=.14)
-        go_btn=Button(text="Перейти", size_hint_x=.14)
-        size_spinner=Spinner(text=str(self.app.page_size), values=("30","60","90","120"), size_hint_x=.22)
 
-        prev_btn.bind(on_release=lambda *_: self.change_page(page-1))
-        next_btn.bind(on_release=lambda *_: self.change_page(page+1))
-        go_btn.bind(on_release=lambda *_: self.go_to_person_page(page_input.text, pages))
-        page_input.bind(on_text_validate=lambda *_: self.go_to_person_page(page_input.text, pages))
-        size_spinner.bind(text=lambda _, value: self.change_person_page_size(value))
+        prev_btn = Button(
+            text="‹",
+            disabled=(page <= 0),
+            size_hint_x=.10,
+            font_size=dp(14)
+        )
+
+        page_label = Label(
+            text=f"{page + 1}/{pages}",
+            halign="center",
+            valign="middle",
+            size_hint_x=.16,
+            font_size=dp(12)
+        )
+
+        page_label.bind(
+            size=lambda obj, *_:
+            setattr(obj, "text_size", obj.size)
+        )
+
+        next_btn = Button(
+            text="›",
+            disabled=(page >= pages - 1),
+            size_hint_x=.10,
+            font_size=dp(14)
+        )
+
+        page_input = TextInput(
+            text=str(page + 1),
+            multiline=False,
+            input_filter="int",
+            halign="center",
+            size_hint_x=.14,
+            font_size=dp(12)
+        )
+
+        go_btn = Button(
+            text="Перейти",
+            size_hint_x=.18,
+            font_size=dp(11)
+        )
+
+        size_spinner = Spinner(
+            text=str(self.app.page_size),
+            values=("30", "60", "90", "120"),
+            size_hint_x=.22,
+            font_size=dp(11)
+        )
+
+        prev_btn.bind(
+            on_release=lambda *_:
+            self.change_page(page - 1)
+        )
+
+        next_btn.bind(
+            on_release=lambda *_:
+            self.change_page(page + 1)
+        )
+
+        go_btn.bind(
+            on_release=lambda *_:
+            self.go_to_person_page(
+                page_input.text,
+                pages
+            )
+        )
+
+        page_input.bind(
+            on_text_validate=lambda *_:
+            self.go_to_person_page(
+                page_input.text,
+                pages
+            )
+        )
+
+        size_spinner.bind(
+            text=lambda _, value:
+            self.change_person_page_size(value)
+        )
 
         box.add_widget(prev_btn)
         box.add_widget(page_label)
@@ -3042,20 +3478,28 @@ class PersonsScreen(BaseScreen):
 
     def go_to_person_page(self, value, pages):
         try:
-            target=int(value)-1
+            target = int(value) - 1
         except (TypeError, ValueError):
             return
-        self.change_page(max(0, min(target, pages-1)))
+
+        self.change_page(
+            max(
+                0,
+                min(target, pages - 1)
+            )
+        )
 
     def change_person_page_size(self, value):
         try:
-            size=int(value)
+            size = int(value)
         except (TypeError, ValueError):
             return
+
         if size == self.app.page_size:
             return
-        self.app.page_size=size
-        self.app.person_page=0
+
+        self.app.page_size = size
+        self.app.person_page = 0
         self.refresh()
 
     def change_page(self, page):
@@ -3063,9 +3507,31 @@ class PersonsScreen(BaseScreen):
         self.refresh()
         self.scroll.scroll_y = 1
 
-    def open_record(self,r):
-        age=self.app.get_age(r); region=self.app.region_for_record(r)
-        self.info("Карточка физлица", f"ФИО: {r.get('fio','')}\n\nДата рождения: {r.get('birth_date','')}\nГод рождения: {r.get('birth_year') or ''}\nВозраст: {age if age is not None else 'не определён'}\n\nМесто рождения: {r.get('birth_place','')}\nРегион: {region}\nСтрана: {country_for_region_value(region)}\n\nОтметка о терроризме: {'Да' if r.get('terrorism_charge',0) else 'Нет'}\n\nИсходная строка:\n{r.get('raw_text','')}\n\nЕсли регион определён неверно, его можно исправить через статистику → нераспознанные регионы.")
+    def open_record(self, r):
+        age = self.app.get_age(r)
+        region = self.app.region_for_record(r)
+
+        self.info(
+            "Карточка физлица",
+            f"ФИО: {r.get('fio', '')}\n\n"
+            f"Дата рождения: {r.get('birth_date', '')}\n"
+            f"Год рождения: "
+            f"{r.get('birth_year') or ''}\n"
+            f"Возраст: "
+            f"{age if age is not None else 'не определён'}\n\n"
+            f"Место рождения: "
+            f"{r.get('birth_place', '')}\n"
+            f"Регион: {region}\n"
+            f"Страна: "
+            f"{country_for_region_value(region)}\n\n"
+            f"Отметка о терроризме: "
+            f"{'Да' if r.get('terrorism_charge', 0) else 'Нет'}\n\n"
+            f"Исходная строка:\n"
+            f"{r.get('raw_text', '')}\n\n"
+            f"Если регион определён неверно, его можно "
+            f"исправить через статистику → "
+            f"нераспознанные регионы."
+        )
 
 
 class OrganizationsScreen(BaseScreen):
