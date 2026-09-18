@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
-
+from kivy.uix.popup import Popup
 from datetime import date, datetime
 
 import sqlite3
@@ -2889,27 +2889,127 @@ class BaseScreen(Screen):
 
 class TopBar(BoxLayout):
     def __init__(self, app, **kwargs):
-        super().__init__(orientation="horizontal", size_hint_y=None, height=dp(52),
-                         padding=(dp(5),dp(5)), spacing=dp(4), **kwargs)
-        self.add_widget(Label(text=APP_TITLE, bold=True, font_size=dp(19), size_hint_x=.32))
-        b = Button(text="Обновить", size_hint_x=.28)
-        b.bind(on_release=lambda *_: app.start_download())
-        self.add_widget(b)
-        b = Button(text="Меню", size_hint_x=.20)
-        b.bind(on_release=lambda *_: app.open_menu())
-        self.add_widget(b)
-        b = Button(text="i", size_hint_x=.12)
-        b.bind(on_release=lambda *_: app.show_developer_info())
-        self.add_widget(b)
+        super().__init__(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(46),
+            padding=(dp(5), dp(4)),
+            spacing=dp(4),
+            **kwargs
+        )
 
+        self.app = app
 
+        self.add_widget(
+            Label(
+                text=APP_TITLE,
+                bold=True,
+                font_size=dp(18),
+                size_hint_x=1
+            )
+        )
+
+        self.more_button = Button(
+            text="»»",
+            size_hint_x=None,
+            width=dp(52),
+            font_size=dp(18)
+        )
+
+        self.more_button.bind(
+            on_release=self.open_more_menu
+        )
+
+        self.add_widget(self.more_button)
+
+    def open_more_menu(self, button):
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(6),
+            padding=dp(8)
+        )
+
+        update_button = Button(
+            text="Обновить",
+            size_hint_y=None,
+            height=dp(52),
+            font_size=dp(16)
+        )
+
+        menu_button = Button(
+            text="Меню",
+            size_hint_y=None,
+            height=dp(52),
+            font_size=dp(16)
+        )
+
+        info_button = Button(
+            text="Информация",
+            size_hint_y=None,
+            height=dp(52),
+            font_size=dp(16)
+        )
+
+        content.add_widget(update_button)
+        content.add_widget(menu_button)
+        content.add_widget(info_button)
+
+        popup = Popup(
+            title="",
+            content=content,
+            size_hint=(None, None),
+            size=(dp(300), dp(210)),
+            auto_dismiss=True,
+            separator_height=0
+        )
+
+        update_button.bind(
+            on_release=lambda *_: (
+                popup.dismiss(),
+                self.app.start_download()
+            )
+        )
+
+        menu_button.bind(
+            on_release=lambda *_: (
+                popup.dismiss(),
+                self.app.open_menu()
+            )
+        )
+
+        info_button.bind(
+            on_release=lambda *_: (
+                popup.dismiss(),
+                self.app.show_developer_info()
+            )
+        )
+
+        popup.open()
+        
 class BottomNav(BoxLayout):
     def __init__(self, app, **kwargs):
-        super().__init__(orientation="horizontal", size_hint_y=None, height=dp(56),
-                         padding=(dp(4),dp(4)), spacing=dp(4), **kwargs)
-        for text, name in (("Физлица","persons"),("Статистика","stats"),("Организации","organizations")):
-            b = Button(text=text)
-            b.bind(on_release=lambda _, n=name: setattr(app.root, "current", n))
+        super().__init__(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(32),
+            padding=(dp(2), dp(2)),
+            spacing=dp(2),
+            **kwargs
+        )
+
+        for text, name in (
+            ("Физлица", "persons"),
+            ("Статистика", "stats"),
+            ("Организации", "organizations")
+        ):
+            b = Button(
+                text=text,
+                font_size=dp(12)
+            )
+            b.bind(
+                on_release=lambda _, n=name:
+                setattr(app.root, "current", n)
+            )
             self.add_widget(b)
 
 
@@ -2918,102 +3018,103 @@ class PersonsScreen(BaseScreen):
         super().__init__(name="persons", **kwargs)
         self.app = app
         self.filters_open = False
+        self.root_layout = None
 
-        root = BoxLayout(orientation="vertical")
+        root = BoxLayout(
+            orientation="vertical"
+        )
+        self.root_layout = root
+
         root.add_widget(TopBar(app))
 
-        # ========================================================
-        # Верхняя строка: фильтры + счётчик
-        # ========================================================
+        # Заголовок + кнопка фильтров
         header = BoxLayout(
+            orientation="horizontal",
             size_hint_y=None,
-            height=dp(36),
-            spacing=dp(4),
-            padding=(dp(4), dp(2))
+            height=dp(40),
+            padding=(dp(5), dp(3)),
+            spacing=dp(5)
         )
 
-        self.filter_button = Button(
+        filter_button = Button(
             text="Фильтры / поиск",
-            size_hint_x=.24,
-            font_size=dp(13)
+            size_hint_x=None,
+            width=dp(150)
         )
-        self.filter_button.bind(
+        filter_button.bind(
             on_release=lambda *_: self.toggle_filters()
         )
-        header.add_widget(self.filter_button)
+
+        header.add_widget(filter_button)
 
         self.counter = Label(
             text="Показано: 0 / 0",
-            size_hint_x=.76,
-            halign="left",
-            valign="middle",
-            font_size=dp(13)
+            halign="right",
+            valign="middle"
         )
         self.counter.bind(
-            size=lambda obj, *_:
-            setattr(obj, "text_size", obj.size)
+            size=lambda obj, *_: setattr(
+                obj,
+                "text_size",
+                obj.size
+            )
         )
+
         header.add_widget(self.counter)
 
         root.add_widget(header)
 
-        # ========================================================
         # Панель фильтров
-        # По умолчанию полностью скрыта.
-        # ========================================================
         self.controls = BoxLayout(
             orientation="vertical",
             size_hint_y=None,
             height=0,
-            padding=dp(4),
-            spacing=dp(3)
+            padding=dp(0),
+            spacing=dp(0),
+            opacity=0,
+            disabled=True
         )
 
         # Поиск
         r = BoxLayout(
             size_hint_y=None,
-            height=dp(34),
-            spacing=dp(4)
+            height=dp(38),
+            spacing=dp(5)
         )
 
         self.search = TextInput(
             hint_text="Поиск: ФИО, место, регион",
-            multiline=False,
-            font_size=dp(14)
+            multiline=False
         )
-        r.add_widget(self.search)
 
-        b = Button(
+        search_button = Button(
             text="Найти",
-            size_hint_x=.16,
-            font_size=dp(13)
+            size_hint_x=None,
+            width=dp(75)
         )
-        b.bind(
-            on_release=lambda *_:
-            self.apply_filters()
-        )
-        r.add_widget(b)
 
+        search_button.bind(
+            on_release=lambda *_: self.apply_filters()
+        )
+
+        r.add_widget(self.search)
+        r.add_widget(search_button)
         self.controls.add_widget(r)
 
-        # Год / терроризм / сортировка / несовершеннолетние
+        # Год / терроризм / сортировка
         r = BoxLayout(
             size_hint_y=None,
-            height=dp(34),
-            spacing=dp(4)
+            height=dp(38),
+            spacing=dp(5)
         )
 
         self.year = Spinner(
             text="Все годы",
-            values=("Все годы",),
-            size_hint_x=.20,
-            font_size=dp(12)
+            values=("Все годы",)
         )
         self.year.bind(
-            text=lambda *_:
-            self.apply_filters()
+            text=lambda *_: self.apply_filters()
         )
-        r.add_widget(self.year)
 
         self.terrorism = Spinner(
             text="ТЕРРОРИЗМ: Все",
@@ -3021,15 +3122,11 @@ class PersonsScreen(BaseScreen):
                 "ТЕРРОРИЗМ: Все",
                 "ТЕРРОРИЗМ: С обвинением",
                 "ТЕРРОРИЗМ: Без обвинения"
-            ),
-            size_hint_x=.34,
-            font_size=dp(11)
+            )
         )
         self.terrorism.bind(
-            text=lambda *_:
-            self.apply_filters()
+            text=lambda *_: self.apply_filters()
         )
-        r.add_widget(self.terrorism)
 
         self.sort_order = Spinner(
             text="По алфавиту А-Я",
@@ -3038,103 +3135,98 @@ class PersonsScreen(BaseScreen):
                 "По возрасту: старш",
                 "По алфавиту А-Я",
                 "По алфавиту Я-А"
-            ),
-            size_hint_x=.30,
-            font_size=dp(11)
+            )
         )
         self.sort_order.bind(
-            text=lambda *_:
-            self.apply_filters()
+            text=lambda *_: self.apply_filters()
         )
+
+        r.add_widget(self.year)
+        r.add_widget(self.terrorism)
         r.add_widget(self.sort_order)
 
+        self.controls.add_widget(r)
+
+        # Регион / несовершеннолетние / сброс
+        r = BoxLayout(
+            size_hint_y=None,
+            height=dp(38),
+            spacing=dp(5)
+        )
+
+        self.region = Spinner(
+            text="Все регионы",
+            values=("Все регионы",)
+        )
+        self.region.bind(
+            text=lambda *_: self.apply_filters()
+        )
+
         minor_box = BoxLayout(
-            size_hint_x=.16,
+            size_hint_x=None,
+            width=dp(120),
             spacing=dp(2)
         )
 
         self.minor = CheckBox(
             size_hint_x=None,
-            width=dp(28)
+            width=dp(30)
         )
-        minor_box.add_widget(self.minor)
 
         minor_label = Label(
-            text="до 18",
-            font_size=dp(12),
+            text="до 18 лет",
             halign="left",
             valign="middle"
         )
+
         minor_label.bind(
-            size=lambda obj, *_:
-            setattr(obj, "text_size", obj.size)
+            size=lambda obj, *_: setattr(
+                obj,
+                "text_size",
+                obj.size
+            )
         )
+
+        minor_box.add_widget(self.minor)
         minor_box.add_widget(minor_label)
 
         self.minor.bind(
-            active=lambda *_:
-            self.apply_filters()
+            active=lambda *_: self.apply_filters()
         )
 
-        r.add_widget(minor_box)
-        self.controls.add_widget(r)
-
-        # Регион / Сброс
-        r = BoxLayout(
-            size_hint_y=None,
-            height=dp(34),
-            spacing=dp(4)
-        )
-
-        self.region = Spinner(
-            text="Все регионы",
-            values=("Все регионы",),
-            size_hint_x=.82,
-            font_size=dp(12)
-        )
-        self.region.bind(
-            text=lambda *_:
-            self.apply_filters()
-        )
-        r.add_widget(self.region)
-
-        b = Button(
+        reset_button = Button(
             text="Сброс",
-            size_hint_x=.18,
-            font_size=dp(12)
+            size_hint_x=None,
+            width=dp(75)
         )
-        b.bind(
-            on_release=lambda *_:
-            self.reset_filters()
+
+        reset_button.bind(
+            on_release=lambda *_: self.reset_filters()
         )
-        r.add_widget(b)
+
+        r.add_widget(self.region)
+        r.add_widget(minor_box)
+        r.add_widget(reset_button)
 
         self.controls.add_widget(r)
 
-        root.add_widget(self.controls)
-
-        # ========================================================
         # Верхняя пагинация
-        # ========================================================
         self.top_pager_box = BoxLayout(
             size_hint_y=None,
             height=dp(34),
-            spacing=dp(3),
-            padding=dp(2)
+            spacing=dp(4),
+            padding=dp(3)
         )
+
         root.add_widget(self.top_pager_box)
 
-        # ========================================================
         # Список
-        # ========================================================
-        self.scroll = ScrollView(
-            size_hint_y=1
-        )
+        self.scroll = ScrollView()
 
         self.list_box = GridLayout(
             cols=1,
-            spacing=dp(2),
-            padding=(dp(4), dp(2)),
+            spacing=dp(4),
+            padding=dp(5),
             size_hint_y=None
         )
 
@@ -3145,27 +3237,38 @@ class PersonsScreen(BaseScreen):
         self.scroll.add_widget(self.list_box)
         root.add_widget(self.scroll)
 
-        # ========================================================
-        # Нижняя навигация
-        # ========================================================
         root.add_widget(BottomNav(app))
 
         self.add_widget(root)
 
         self.search.bind(
-            on_text_validate=lambda *_:
-            self.apply_filters()
-        )
+            on_text_validate=lambda *_: self.apply_filters()
+        )        
 
     def toggle_filters(self):
+        self.filters_open = not self.filters_open
+
         if self.filters_open:
-            self.filters_open = False
-            self.controls.height = 0
-            self.filter_button.text = "Фильтры / поиск"
+            self.controls.opacity = 1
+            self.controls.disabled = False
+
+            # Вставляем панель между header и пагинацией
+            self.root_layout.add_widget(
+                self.controls,
+                index=3
+            )
+
+            self.controls.height = dp(132)
+
         else:
-            self.filters_open = True
-            self.controls.height = dp(112)
-            self.filter_button.text = "Скрыть фильтры"
+            # Полностью убираем панель из интерфейса
+            self.root_layout.remove_widget(
+                self.controls
+           )
+
+            self.controls.height = 0
+
+        self.refresh()
 
     def on_pre_enter(self, *_):
         self.sync_filter_values()
@@ -3666,31 +3769,63 @@ class StatsScreen(BaseScreen):
             self.metric_labels.append(value)
         root.add_widget(self.metrics)
 
-        # Вместо попытки впихнуть сотню строк статистики в один экран
-        # показываем два нормальных раздела, каждый открывается отдельно.
-        sections=BoxLayout(orientation="horizontal",spacing=dp(12),padding=(dp(12),dp(12)))
-        year_box=BoxLayout(orientation="vertical",spacing=dp(6),size_hint_x=.5)
-        year_box.add_widget(Label(text="Год рождения",font_size=dp(18),bold=True,size_hint_y=None,height=dp(34)))
-        b=Button(text="Открыть статистику по годам",font_size=dp(16))
-        b.bind(on_release=lambda *_:self.show_distribution("Год рождения",True))
-        year_box.add_widget(b)
-        sections.add_widget(year_box)
+                # Кнопки открытия подробной статистики
+        sections = BoxLayout(
+            orientation="horizontal",
+            spacing=dp(8),
+            padding=(dp(8), dp(6))
+        )
 
-        region_box=BoxLayout(orientation="vertical",spacing=dp(6),size_hint_x=.5)
-        region_box.add_widget(Label(text="Регион",font_size=dp(18),bold=True,size_hint_y=None,height=dp(34)))
-        b=Button(text="Открыть статистику по регионам",font_size=dp(16))
-        b.bind(on_release=lambda *_:self.show_distribution("Регион",False))
-        region_box.add_widget(b)
-        sections.add_widget(region_box)
+        year_button = Button(
+            text="Статистика по годам",
+            font_size=dp(16)
+        )
+        year_button.bind(
+            on_release=lambda *_:
+            self.show_distribution("Год рождения", True)
+        )
+        sections.add_widget(year_button)
+
+        region_button = Button(
+            text="Статистика по регионам",
+            font_size=dp(16)
+        )
+        region_button.bind(
+            on_release=lambda *_:
+            self.show_distribution("Регион", False)
+        )
+        sections.add_widget(region_button)
+
         root.add_widget(sections)
 
-        actions=BoxLayout(size_hint_y=None,height=dp(50),padding=(dp(8),dp(4)),spacing=dp(8))
-        b=Button(text="Нераспознанные регионы")
-        b.bind(on_release=lambda *_:self.app.open_unknown_regions())
+        # Служебные действия
+        actions = BoxLayout(
+            size_hint_y=None,
+            height=dp(28),
+            padding=(dp(4), dp(2)),
+            spacing=dp(4)
+        )
+
+        b = Button(
+            text="Нераспознанные регионы",
+            font_size=dp(11)
+        )
+        b.bind(
+            on_release=lambda *_:
+            self.app.open_unknown_regions()
+        )
         actions.add_widget(b)
-        b=Button(text="Экспорт нераспознанных регионов CSV")
-        b.bind(on_release=lambda *_:self.app.export_unknown_regions())
+
+        b = Button(
+            text="Экспорт нераспознанных регионов CSV",
+            font_size=dp(11)
+        )
+        b.bind(
+            on_release=lambda *_:
+            self.app.export_unknown_regions()
+        )
         actions.add_widget(b)
+
         root.add_widget(actions)
         root.add_widget(BottomNav(app))
         self.add_widget(root)
@@ -4109,3 +4244,4 @@ if __name__ == "__main__":
     def prev_org_page(self):
         self.org_page = max(0, self.org_page - 1)
         self.refresh_all()
+
