@@ -14,6 +14,7 @@ import html
 import threading
 import webbrowser
 import csv
+import io
 
 
 # ============================================================
@@ -2711,7 +2712,7 @@ import csv
 
 from kivy.app import App
 from kivy.clock import Clock
-from kivy.metrics import dp
+from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
@@ -2725,6 +2726,7 @@ from kivy.uix.progressbar import ProgressBar
 from kivy.uix.checkbox import CheckBox
 from kivy.uix.slider import Slider
 from kivy.uix.widget import Widget
+from kivy.uix.filechooser import FileChooserListView
 from kivy.graphics import Color, Rectangle, PushMatrix, PopMatrix, Rotate
 from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle, PushMatrix, PopMatrix, Rotate
@@ -2904,7 +2906,7 @@ class TopBar(BoxLayout):
             Label(
                 text=APP_TITLE,
                 bold=True,
-                font_size=dp(18),
+                font_size=sp(16),
                 size_hint_x=1
             )
         )
@@ -2913,7 +2915,7 @@ class TopBar(BoxLayout):
             text="»»",
             size_hint_x=None,
             width=dp(52),
-            font_size=dp(18)
+            font_size=sp(16)
         )
 
         self.more_button.bind(
@@ -2933,21 +2935,21 @@ class TopBar(BoxLayout):
             text="Обновить",
             size_hint_y=None,
             height=dp(52),
-            font_size=dp(16)
+            font_size=sp(14)
         )
 
         menu_button = Button(
             text="Меню",
             size_hint_y=None,
             height=dp(52),
-            font_size=dp(16)
+            font_size=sp(14)
         )
 
         info_button = Button(
             text="Информация",
             size_hint_y=None,
             height=dp(52),
-            font_size=dp(16)
+            font_size=sp(14)
         )
 
         content.add_widget(update_button)
@@ -3004,7 +3006,7 @@ class BottomNav(BoxLayout):
         ):
             b = Button(
                 text=text,
-                font_size=dp(12)
+                font_size=sp(11)
             )
             b.bind(
                 on_release=lambda _, n=name:
@@ -3084,7 +3086,9 @@ class PersonsScreen(BaseScreen):
 
         self.search = TextInput(
             hint_text="Поиск: ФИО, место, регион",
-            multiline=False
+            multiline=False,
+            input_type="text",
+            keyboard_suggestions=True
         )
 
         search_button = Button(
@@ -3442,7 +3446,7 @@ class PersonsScreen(BaseScreen):
 
             b = RecordButton(
                 text=text,
-                font_size=dp(14),
+                font_size=sp(13),
                 size_hint_y=None,
                 height=dp(48)
             )
@@ -3496,7 +3500,7 @@ class PersonsScreen(BaseScreen):
             text="‹",
             disabled=(page <= 0),
             size_hint_x=.10,
-            font_size=dp(14)
+            font_size=sp(13)
         )
 
         page_label = Label(
@@ -3504,7 +3508,7 @@ class PersonsScreen(BaseScreen):
             halign="center",
             valign="middle",
             size_hint_x=.16,
-            font_size=dp(12)
+            font_size=sp(11)
         )
 
         page_label.bind(
@@ -3516,29 +3520,31 @@ class PersonsScreen(BaseScreen):
             text="›",
             disabled=(page >= pages - 1),
             size_hint_x=.10,
-            font_size=dp(14)
+            font_size=sp(13)
         )
 
         page_input = TextInput(
             text=str(page + 1),
             multiline=False,
             input_filter="int",
+            input_type="number",
+            keyboard_suggestions=False,
             halign="center",
             size_hint_x=.14,
-            font_size=dp(12)
+            font_size=sp(11)
         )
 
         go_btn = Button(
             text="Перейти",
             size_hint_x=.18,
-            font_size=dp(11)
+            font_size=sp(10)
         )
 
         size_spinner = Spinner(
             text=str(self.app.page_size),
             values=("30", "60", "90", "120"),
             size_hint_x=.22,
-            font_size=dp(11)
+            font_size=sp(10)
         )
 
         prev_btn.bind(
@@ -3642,7 +3648,7 @@ class OrganizationsScreen(BaseScreen):
         super().__init__(name="organizations",**kwargs); self.app=app
         root=BoxLayout(orientation="vertical"); root.add_widget(TopBar(app))
         c=BoxLayout(size_hint_y=None,height=dp(94),orientation="vertical",padding=dp(6),spacing=dp(5))
-        r=BoxLayout(size_hint_y=None,height=dp(42),spacing=dp(5)); self.search=TextInput(hint_text="Поиск по организации",multiline=False); r.add_widget(self.search); b=Button(text="Найти",size_hint_x=.25); b.bind(on_release=lambda *_:self.apply_filters()); r.add_widget(b); c.add_widget(r)
+        r=BoxLayout(size_hint_y=None,height=dp(42),spacing=dp(5)); self.search=TextInput(hint_text="Поиск по организации",multiline=False,input_type="text",keyboard_suggestions=True); r.add_widget(self.search); b=Button(text="Найти",size_hint_x=.25); b.bind(on_release=lambda *_:self.apply_filters()); r.add_widget(b); c.add_widget(r)
         r=BoxLayout(size_hint_y=None,height=dp(42)); r.add_widget(Label(text="Терроризм:",size_hint_x=.30)); self.terrorism=Spinner(text="Все",values=("Все","Террористические","Без отметки")); self.terrorism.bind(text=lambda *_:self.apply_filters()); r.add_widget(self.terrorism); c.add_widget(r)
         root.add_widget(c); self.counter=Label(text="Показано: 0 / 0",size_hint_y=None,height=dp(28),halign="left"); root.add_widget(self.counter)
         self.scroll=ScrollView(); self.list_box=GridLayout(cols=1,spacing=dp(4),padding=dp(5),size_hint_y=None); self.list_box.bind(minimum_height=self.list_box.setter("height")); self.scroll.add_widget(self.list_box); root.add_widget(self.scroll); root.add_widget(BottomNav(app)); self.add_widget(root); self.search.bind(on_text_validate=lambda *_:self.apply_filters())
@@ -3723,7 +3729,7 @@ class RotatedYearLabel(Widget):
     def __init__(self, year, count, pct, **kwargs):
         super().__init__(**kwargs)
         self.text = f"{year}   {count}   {pct:.2f}%"
-        self.label = Label(text=self.text, font_size=dp(10), halign="center", valign="middle")
+        self.label = Label(text=self.text, font_size=sp(10), halign="center", valign="middle")
         self.add_widget(self.label)
         with self.canvas.before:
             PushMatrix()
@@ -3762,8 +3768,8 @@ class StatsScreen(BaseScreen):
         self.metric_labels=[]
         for title in ("Записей","С отметкой","Несовершеннолетних","Регион не определён"):
             box=BoxLayout(orientation="vertical",padding=dp(5))
-            box.add_widget(Label(text=title,font_size=dp(12),size_hint_y=.42))
-            value=Label(text="0",bold=True,font_size=dp(19),size_hint_y=.58)
+            box.add_widget(Label(text=title,font_size=sp(11),size_hint_y=.42))
+            value=Label(text="0",bold=True,font_size=sp(17),size_hint_y=.58)
             box.add_widget(value)
             self.metrics.add_widget(box)
             self.metric_labels.append(value)
@@ -3778,7 +3784,7 @@ class StatsScreen(BaseScreen):
 
         year_button = Button(
             text="Статистика по годам",
-            font_size=dp(16)
+            font_size=sp(14)
         )
         year_button.bind(
             on_release=lambda *_:
@@ -3788,7 +3794,7 @@ class StatsScreen(BaseScreen):
 
         region_button = Button(
             text="Статистика по регионам",
-            font_size=dp(16)
+            font_size=sp(14)
         )
         region_button.bind(
             on_release=lambda *_:
@@ -3808,7 +3814,7 @@ class StatsScreen(BaseScreen):
 
         b = Button(
             text="Нераспознанные регионы",
-            font_size=dp(11)
+            font_size=sp(10)
         )
         b.bind(
             on_release=lambda *_:
@@ -3818,7 +3824,7 @@ class StatsScreen(BaseScreen):
 
         b = Button(
             text="Экспорт нераспознанных регионов CSV",
-            font_size=dp(11)
+            font_size=sp(10)
         )
         b.bind(
             on_release=lambda *_:
@@ -3901,11 +3907,11 @@ class StatsScreen(BaseScreen):
             for key,count in items:
                 pct=(count*100.0/total) if total else 0
                 line=BoxLayout(size_hint_y=None,height=dp(42),spacing=dp(7))
-                label=Label(text=str(key),size_hint_x=.25,font_size=dp(13),halign="left",valign="middle")
+                label=Label(text=str(key),size_hint_x=.25,font_size=sp(13),halign="left",valign="middle")
                 label.bind(size=lambda obj,*_:setattr(obj,"text_size",obj.size))
                 line.add_widget(label)
                 line.add_widget(ProgressBar(max=maxn,value=count,size_hint_x=.45))
-                value=Label(text=f"{count}  ({pct:.2f}%)",size_hint_x=.30,font_size=dp(12),halign="right",valign="middle")
+                value=Label(text=f"{count}  ({pct:.2f}%)",size_hint_x=.30,font_size=sp(11),halign="right",valign="middle")
                 value.bind(size=lambda obj,*_:setattr(obj,"text_size",obj.size))
                 line.add_widget(value)
                 listing.add_widget(line)
@@ -4041,8 +4047,8 @@ class StatsScreen(BaseScreen):
 
     def show_year_detail(self,year,count,pct):
         detail=BoxLayout(orientation="vertical",padding=dp(12),spacing=dp(8))
-        detail.add_widget(Label(text=f"{year}",font_size=dp(25),bold=True,size_hint_y=None,height=dp(38)))
-        detail.add_widget(Label(text=f"{count} человек\n{pct:.2f}% от общего числа",font_size=dp(20),halign="center",valign="middle"))
+        detail.add_widget(Label(text=f"{year}",font_size=sp(22),bold=True,size_hint_y=None,height=dp(38)))
+        detail.add_widget(Label(text=f"{count} человек\n{pct:.2f}% от общего числа",font_size=sp(18),halign="center",valign="middle"))
         popup=Popup(title="Статистика",content=detail,size_hint=(.58,.34),auto_dismiss=True)
         popup.open()
 
@@ -4171,14 +4177,79 @@ class MobileApp(App):
         box=BoxLayout(orientation="vertical",padding=dp(12),spacing=dp(8)); lab=Label(text=text,halign="left",valign="middle"); box.add_widget(lab); close=Button(text="Закрыть",size_hint_y=None,height=dp(46)); box.add_widget(close); p=Popup(title=title,content=box,size_hint=(.90,.55),auto_dismiss=False); close.bind(on_release=p.dismiss); p.open()
         if auto_close: Clock.schedule_once(lambda *_:p.dismiss(),auto_close)
 
-    def save_file(self,name,data):
-        path=Path(self.user_data_dir)/name; path.write_text(data,encoding="utf-8"); self.info_popup("Файл сохранён",str(path))
+    def save_dialog(self, default_name, data, title="Сохранить файл"):
+        box=BoxLayout(orientation="vertical",padding=dp(8),spacing=dp(6))
+        chooser=FileChooserListView(
+            path=str(BASE),
+            dirselect=True,
+            multiselect=False,
+            size_hint_y=1
+        )
+        box.add_widget(chooser)
+
+        name_row=BoxLayout(size_hint_y=None,height=dp(44),spacing=dp(6))
+        name_row.add_widget(Label(text="Имя:",size_hint_x=.14))
+        name_input=TextInput(
+            text=default_name,
+            multiline=False,
+            input_type="text",
+            keyboard_suggestions=True
+        )
+        name_row.add_widget(name_input)
+        box.add_widget(name_row)
+
+        buttons=BoxLayout(size_hint_y=None,height=dp(46),spacing=dp(6))
+        save=Button(text="Сохранить")
+        cancel=Button(text="Отмена")
+        buttons.add_widget(save); buttons.add_widget(cancel)
+        box.add_widget(buttons)
+
+        popup=Popup(title=title,content=box,size_hint=(.96,.92),auto_dismiss=False)
+        cancel.bind(on_release=popup.dismiss)
+
+        def choose_file(*_):
+            name=name_input.text.strip()
+            if not name:
+                return
+            directory=Path(chooser.path)
+            if not directory.is_dir():
+                directory=BASE
+            path=directory/name
+            try:
+                path.parent.mkdir(parents=True,exist_ok=True)
+                if isinstance(data,bytes):
+                    with path.open("wb") as f:
+                        f.write(data)
+                else:
+                    path.write_text(data,encoding="utf-8")
+                popup.dismiss()
+                self.info_popup("Файл сохранён",str(path))
+            except Exception as exc:
+                self.info_popup("Ошибка сохранения",str(exc))
+
+        save.bind(on_release=choose_file)
+
+        def update_name(*_):
+            if chooser.selection:
+                selected=Path(chooser.selection[0])
+                if selected.is_file():
+                    name_input.text=selected.name
+
+        chooser.bind(selection=update_name)
+        popup.open()
+
     def save_html(self):
-        if not self.page_html: self.info_popup("Нет данных","Сначала нажмите «Обновить»."); return
-        self.save_file("fedsfm_active.html",self.page_html)
+        if not self.page_html:
+            self.info_popup("Нет данных","Сначала нажмите «Обновить».")
+            return
+        self.save_dialog("fedsfm_active.html",self.page_html,"Сохранить HTML")
+
     def save_text(self):
-        if not self.page_text: self.info_popup("Нет данных","Сначала нажмите «Обновить»."); return
-        self.save_file("fedsfm_active.txt",self.page_text)
+        if not self.page_text:
+            self.info_popup("Нет данных","Сначала нажмите «Обновить».")
+            return
+        self.save_dialog("fedsfm_active.txt",self.page_text,"Сохранить TXT")
+
     def save_current_selection(self):
         screen=self.root.get_screen("persons"); q=screen.search.text.strip().casefold(); rows=[]
         for r in self.records:
@@ -4189,20 +4260,33 @@ class MobileApp(App):
             if screen.region.text!="Все регионы" and self.region_for_record(r)!=screen.region.text: continue
             if screen.minor.active and (self.get_age(r) is None or self.get_age(r)>=18): continue
             rows.append(r)
-        path=Path(self.user_data_dir)/"ekster_selection.csv"
-        with path.open("w",encoding="utf-8-sig",newline="") as f:
-            w=csv.writer(f,delimiter=";"); w.writerow(["ФИО","Дата рождения","Год","Возраст","Место рождения","Регион","Страна","Терроризм"])
-            for r in rows: w.writerow([r.get("fio",""),r.get("birth_date",""),r.get("birth_year") or "",self.get_age(r) if self.get_age(r) is not None else "",r.get("birth_place",""),self.region_for_record(r),country_for_region_value(self.region_for_record(r)),"Да" if r.get("terrorism_charge",0) else "Нет"])
-        self.info_popup("CSV сохранён",f"Записей: {len(rows)}\n{path}")
+
+        out=io.StringIO()
+        w=csv.writer(out,delimiter=";")
+        w.writerow(["ФИО","Дата рождения","Год","Возраст","Место рождения","Регион","Страна","Терроризм"])
+        for r in rows:
+            w.writerow([
+                r.get("fio",""),r.get("birth_date",""),r.get("birth_year") or "",
+                self.get_age(r) if self.get_age(r) is not None else "",
+                r.get("birth_place",""),self.region_for_record(r),
+                country_for_region_value(self.region_for_record(r)),
+                "Да" if r.get("terrorism_charge",0) else "Нет"
+            ])
+        self.save_dialog("ekster_selection.csv",out.getvalue(),"Сохранить выборку CSV")
+
     def export_unknown_regions(self):
         counts={}
         for r in self.records:
-            if self.region_for_record(r)=="Регион не определён": counts[r.get("birth_place","")]=counts.get(r.get("birth_place",""),0)+1
-        path=Path(self.user_data_dir)/"unknown_regions.csv"
-        with path.open("w",encoding="utf-8-sig",newline="") as f:
-            w=csv.writer(f,delimiter=";"); w.writerow(["Место рождения","Количество"])
-            for place,count in sorted(counts.items(),key=lambda x:(-x[1],x[0].casefold())): w.writerow([place,count])
-        self.info_popup("Экспорт завершён",f"Нераспознанных мест: {len(counts)}\n{path}")
+            if self.region_for_record(r)=="Регион не определён":
+                counts[r.get("birth_place","")]=counts.get(r.get("birth_place",""),0)+1
+
+        out=io.StringIO()
+        w=csv.writer(out,delimiter=";")
+        w.writerow(["Место рождения","Количество"])
+        for place,count in sorted(counts.items(),key=lambda x:(-x[1],x[0].casefold())):
+            w.writerow([place,count])
+        self.save_dialog("unknown_regions.csv",out.getvalue(),"Сохранить нераспознанные регионы")
+
     def open_unknown_regions(self):
         counts={}
         for r in self.records:
@@ -4212,7 +4296,7 @@ class MobileApp(App):
             b=Button(text=f"{place}  [{count}]",size_hint_y=None,height=dp(54),halign="left"); b.bind(on_release=lambda _,pl=place:self.edit_unknown(pl,p)); grid.add_widget(b)
         p.open()
     def edit_unknown(self,place,parent):
-        box=BoxLayout(orientation="vertical",padding=dp(10),spacing=dp(7)); box.add_widget(Label(text=f"Место рождения:\n{place}",size_hint_y=None,height=dp(62),halign="left")); inp=TextInput(hint_text="Новое значение региона",multiline=False,size_hint_y=None,height=dp(44)); box.add_widget(inp); hint=Label(text="Например: Астраханская область",size_hint_y=None,height=dp(34)); box.add_widget(hint); row=BoxLayout(size_hint_y=None,height=dp(46),spacing=dp(6)); save=Button(text="Сохранить"); cancel=Button(text="Отмена"); row.add_widget(save); row.add_widget(cancel); box.add_widget(row); pop=Popup(title="Исправить регион",content=box,size_hint=(.92,.45),auto_dismiss=False); cancel.bind(on_release=pop.dismiss)
+        box=BoxLayout(orientation="vertical",padding=dp(10),spacing=dp(7)); box.add_widget(Label(text=f"Место рождения:\n{place}",size_hint_y=None,height=dp(62),halign="left")); inp=TextInput(hint_text="Новое значение региона",multiline=False,input_type="text",keyboard_suggestions=True,size_hint_y=None,height=dp(44)); box.add_widget(inp); hint=Label(text="Например: Астраханская область",size_hint_y=None,height=dp(34)); box.add_widget(hint); row=BoxLayout(size_hint_y=None,height=dp(46),spacing=dp(6)); save=Button(text="Сохранить"); cancel=Button(text="Отмена"); row.add_widget(save); row.add_widget(cancel); box.add_widget(row); pop=Popup(title="Исправить регион",content=box,size_hint=(.92,.45),auto_dismiss=False); cancel.bind(on_release=pop.dismiss)
         def do_save(*_):
             region=inp.text.strip()
             if not region: return
