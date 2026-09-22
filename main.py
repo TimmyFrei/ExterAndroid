@@ -2877,10 +2877,23 @@ class RecordButton(Button):
 class BaseScreen(Screen):
     def info(self, title, text, height=.82):
         box = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))
-        scroll = ScrollView()
-        label = Label(text=text, size_hint_y=None, halign="left", valign="top")
-        label.bind(texture_size=lambda obj, size: setattr(obj, "size", size))
+        scroll = ScrollView(do_scroll_x=False)
+        label = Label(
+            text=text,
+            size_hint_y=None,
+            size_hint_x=1,
+            halign="left",
+            valign="top"
+        )
+
+        def sync_info_label(*_):
+            label.text_size = (label.width - dp(4), None)
+            label.height = label.texture_size[1] + dp(8)
+
+        label.bind(size=sync_info_label, text=sync_info_label)
+        scroll.bind(size=sync_info_label)
         scroll.add_widget(label)
+        Clock.schedule_once(sync_info_label, 0)
         box.add_widget(scroll)
         close = Button(text="Закрыть", size_hint_y=None, height=dp(48))
         box.add_widget(close)
@@ -4066,6 +4079,15 @@ class MobileApp(App):
         self.org_page=0
         self.import_stage="Готово"
         self.import_running=False
+        self._save_request_code=4317
+        self._pending_save_data=None
+        self._pending_save_name=None
+        self._pending_save_title=None
+        try:
+            from android import activity
+            activity.bind(on_activity_result=self._on_activity_result)
+        except ImportError:
+            pass
         self.prepare_cache()
 
     def build(self):
@@ -4164,10 +4186,10 @@ class MobileApp(App):
     def download_failed(self,exc): self.busy=False; self.info_popup("Ошибка загрузки",f"{type(exc).__name__}: {exc}")
 
     def open_menu(self):
-        box=BoxLayout(orientation="vertical",padding=dp(10),spacing=dp(7))
+        box=BoxLayout(orientation="vertical",padding=dp(7),spacing=dp(3))
         for text,fn in (("Открыть сайт Росфинмониторинга",self.open_site),("Сохранить HTML",self.save_html),("Сохранить TXT",self.save_text),("Сохранить текущую выборку физлиц CSV",self.save_current_selection),("Очистить базу",self.clear_database)):
-            b=Button(text=text,size_hint_y=None,height=dp(48)); b.bind(on_release=lambda _,f=fn:f()); box.add_widget(b)
-        close=Button(text="Закрыть",size_hint_y=None,height=dp(48)); box.add_widget(close); p=Popup(title="Меню",content=box,size_hint=(.92,.70),auto_dismiss=False); close.bind(on_release=p.dismiss); self.menu_popup=p; p.open()
+            b=Button(text=text,size_hint_y=None,height=dp(26),font_size=sp(11)); b.bind(on_release=lambda _,f=fn:f()); box.add_widget(b)
+        close=Button(text="Закрыть",size_hint_y=None,height=dp(26),font_size=sp(11)); box.add_widget(close); p=Popup(title="Меню",content=box,size_hint=(.92,.50),auto_dismiss=False); close.bind(on_release=p.dismiss); self.menu_popup=p; p.open()
     def open_site(self): webbrowser.open(URL)
     def show_developer_info(self): self.info_popup("Экстер", "Мобильная версия Экстера.\n\nИсточник данных: официальный список Росфинмониторинга.\n\nЛогика парсинга, нормализации регионов, ручных соответствий, фильтров и статистики перенесена из последней десктопной версии.")
     def toast(self,text):
@@ -4178,65 +4200,75 @@ class MobileApp(App):
         if auto_close: Clock.schedule_once(lambda *_:p.dismiss(),auto_close)
 
     def save_dialog(self, default_name, data, title="Сохранить файл"):
-        box=BoxLayout(orientation="vertical",padding=dp(8),spacing=dp(6))
-        chooser=FileChooserListView(
-            path=str(BASE),
-            dirselect=True,
-            multiselect=False,
-            size_hint_y=1
-        )
-        box.add_widget(chooser)
+        # На Android используем системный SAF-диалог. Он позволяет выбрать
+        # имя файла и папку в обычном файловом интерфейсе Android, а не
+        # ограничивает сохранение каталогом приложения.
+        try:
+            from android import activity
+            from jnius import autoclass
 
-        name_row=BoxLayout(size_hint_y=None,height=dp(44),spacing=dp(6))
-        name_row.add_widget(Label(text="Имя:",size_hint_x=.14))
-        name_input=TextInput(
-            text=default_name,
-            multiline=False,
-            input_type="text",
-            keyboard_suggestions=True
-        )
-        name_row.add_widget(name_input)
-        box.add_widget(name_row)
+            Intent = autoclass("android.content.Intent")
+            intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+            intent.addCategory(Intent.CATEGORY_OPENABLE)
 
-        buttons=BoxLayout(size_hint_y=None,height=dp(46),spacing=dp(6))
-        save=Button(text="Сохранить")
-        cancel=Button(text="Отмена")
-        buttons.add_widget(save); buttons.add_widget(cancel)
-        box.add_widget(buttons)
+            lower = default_name.lower()
+            if lower.endswith(".html") or lower.endswith(".htm"):
+                mime = "text/html"
+            elif lower.endswith(".csv"):
+                mime = "text/csv"
+            elif lower.endswith(".txt"):
+                mime = "text/plain"
+            else:
+                mime = "application/octet-stream"
 
-        popup=Popup(title=title,content=box,size_hint=(.96,.92),auto_dismiss=False)
-        cancel.bind(on_release=popup.dismiss)
+            intent.setType(mime)
+            intent.putExtra(Intent.EXTRA_TITLE, default_name)
 
-        def choose_file(*_):
-            name=name_input.text.strip()
-            if not name:
-                return
-            directory=Path(chooser.path)
-            if not directory.is_dir():
-                directory=BASE
-            path=directory/name
-            try:
-                path.parent.mkdir(parents=True,exist_ok=True)
-                if isinstance(data,bytes):
-                    with path.open("wb") as f:
-                        f.write(data)
-                else:
-                    path.write_text(data,encoding="utf-8")
-                popup.dismiss()
-                self.info_popup("Файл сохранён",str(path))
-            except Exception as exc:
-                self.info_popup("Ошибка сохранения",str(exc))
+            self._pending_save_data = data
+            self._pending_save_name = default_name
+            self._pending_save_title = title
+            self._save_request_code = 4317
 
-        save.bind(on_release=choose_file)
+            activity.startActivityForResult(intent, self._save_request_code)
+        except Exception as exc:
+            self.info_popup("Ошибка сохранения", str(exc))
 
-        def update_name(*_):
-            if chooser.selection:
-                selected=Path(chooser.selection[0])
-                if selected.is_file():
-                    name_input.text=selected.name
+    def _on_activity_result(self, request_code, result_code, intent):
+        if request_code != getattr(self, "_save_request_code", None):
+            return
 
-        chooser.bind(selection=update_name)
-        popup.open()
+        if result_code != -1 or intent is None:
+            return
+
+        try:
+            from android import activity
+
+            uri = intent.getData()
+            if uri is None:
+                raise RuntimeError("Android не вернул место сохранения.")
+
+            data = getattr(self, "_pending_save_data", None)
+            if data is None:
+                raise RuntimeError("Нет данных для сохранения.")
+
+            # ContentResolver работает с выбранным пользователем URI и не
+            # требует давать приложению доступ ко всей файловой системе.
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            resolver = PythonActivity.mActivity.getContentResolver()
+            stream = resolver.openOutputStream(uri)
+            if stream is None:
+                raise RuntimeError("Не удалось открыть выбранный файл для записи.")
+
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            stream.write(bytearray(data))
+            stream.close()
+
+            self._pending_save_data = None
+            self._pending_save_name = None
+            self.info_popup("Файл сохранён", uri.toString())
+        except Exception as exc:
+            self.info_popup("Ошибка сохранения", str(exc))
 
     def save_html(self):
         if not self.page_html:
