@@ -4196,7 +4196,19 @@ class MobileApp(App):
         # Небольшое системное сообщение без сторонних зависимостей.
         self.info_popup("Экстер",text,auto_close=2.2)
     def info_popup(self,title,text,auto_close=None):
-        box=BoxLayout(orientation="vertical",padding=dp(12),spacing=dp(8)); lab=Label(text=text,halign="left",valign="middle"); box.add_widget(lab); close=Button(text="Закрыть",size_hint_y=None,height=dp(46)); box.add_widget(close); p=Popup(title=title,content=box,size_hint=(.90,.55),auto_dismiss=False); close.bind(on_release=p.dismiss); p.open()
+        box=BoxLayout(orientation="vertical",padding=dp(12),spacing=dp(8))
+        lab=Label(text=text,font_size=sp(11),halign="left",valign="top",size_hint_y=1)
+        def sync_label(*_):
+            lab.text_size=(lab.width-dp(4),None)
+            lab.height=max(dp(40),lab.texture_size[1]+dp(8))
+        lab.bind(size=sync_label,text=sync_label)
+        box.add_widget(lab)
+        close=Button(text="Закрыть",size_hint_y=None,height=dp(40),font_size=sp(12))
+        box.add_widget(close)
+        p=Popup(title=title,content=box,size_hint=(.90,.55),auto_dismiss=False)
+        close.bind(on_release=p.dismiss)
+        p.open()
+        Clock.schedule_once(sync_label,0)
         if auto_close: Clock.schedule_once(lambda *_:p.dismiss(),auto_close)
 
     def save_dialog(self, default_name, data, title="Сохранить файл"):
@@ -4229,7 +4241,8 @@ class MobileApp(App):
             self._pending_save_title = title
             self._save_request_code = 4317
 
-            activity.startActivityForResult(intent, self._save_request_code)
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            PythonActivity.mActivity.startActivityForResult(intent, self._save_request_code)
         except Exception as exc:
             self.info_popup("Ошибка сохранения", str(exc))
 
@@ -4241,8 +4254,6 @@ class MobileApp(App):
             return
 
         try:
-            from android import activity
-
             uri = intent.getData()
             if uri is None:
                 raise RuntimeError("Android не вернул место сохранения.")
@@ -4253,6 +4264,7 @@ class MobileApp(App):
 
             # ContentResolver работает с выбранным пользователем URI и не
             # требует давать приложению доступ ко всей файловой системе.
+            from jnius import autoclass
             PythonActivity = autoclass("org.kivy.android.PythonActivity")
             resolver = PythonActivity.mActivity.getContentResolver()
             stream = resolver.openOutputStream(uri)
